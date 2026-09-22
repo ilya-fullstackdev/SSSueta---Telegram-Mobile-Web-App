@@ -10,24 +10,67 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-// Функция для форматирования баланса
 function formatBalance(balance) {
   return balance.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+}
+
+function formatCode(code) {
+  return code.slice(0, 4) + "-" + code.slice(4, 8);
+}
+
+async function generateUniqueCode(db) {
+  const usersRef = db.collection("users");
+  let code;
+  let exists = true;
+
+  while (exists) {
+    code = Math.floor(10000000 + Math.random() * 90000000).toString();
+    const querySnapshot = await usersRef.where("code", "==", code).get();
+    exists = !querySnapshot.empty;
+  }
+
+  return code;
+}
+
+function initUser() {
+  const user = window.Telegram?.WebApp?.initDataUnsafe?.user;
+
+  if (!user || !user.id) {
+    document.getElementById("user-name").textContent = "Гость";
+    document.getElementById("user-code").textContent = "XXXX-XXXX";
+    document.querySelector(".balance-value").textContent = "0 С";
+    return;
+  }
+
+  const userId = user.id.toString();
+  const name = `${user.first_name} ${user.last_name || ""}`.trim();
+  const photoUrl = user.photo_url || "./img/avatar.png";
+
+  document.getElementById("user-name").textContent = name;
+  document.getElementById("user-photo").src = photoUrl;
+
+  const userRef = db.collection("users").doc(userId);
+
+  userRef.onSnapshot(async (userSnap) => {
+    if (userSnap.exists) {
+      const data = userSnap.data();
+      const balance = data.balance ?? 0;
+
+      document.querySelector(".balance-value").textContent = `${formatBalance(balance)} С`;
+      document.getElementById("user-code").textContent = formatCode(data.code || "00000000");
+    } else {
+      const code = await generateUniqueCode(db);
+      await userRef.set({ name, photoUrl, code, balance: 0, tickets: [] });
+    }
+  });
 }
 
 async function loadEvents() {
   const eventContainer = document.querySelector(".event-container");
 
   if (!window.Telegram?.WebApp?.initDataUnsafe?.user?.id) {
-    console.warn(
-      "User data is not available. Showing events without user-specific data."
-    );
-
     db.collection("events").onSnapshot((snapshot) => {
       if (snapshot.empty) {
-        console.log(
-          "No events in the database — showing placeholders from HTML."
-        );
         return;
       }
 
@@ -36,7 +79,6 @@ async function loadEvents() {
         const event = doc.data();
         const eventId = doc.id;
         eventContainer.innerHTML += createEventHTML(event, eventId, false);
-        setupCopyButtons();
       });
     });
     return;
@@ -45,21 +87,6 @@ async function loadEvents() {
   const userId = window.Telegram.WebApp.initDataUnsafe.user.id.toString();
   const userRef = db.collection("users").doc(userId);
 
-  function setupCopyButtons() {
-    // Удаляем старые обработчики, чтобы избежать дублирования
-    document.querySelectorAll(".copy-icon").forEach((icon) => {
-      icon.replaceWith(icon.cloneNode(true));
-    });
-
-    // Добавляем обработчики на новые элементы
-    document.querySelectorAll(".copy-icon").forEach((icon) => {
-      icon.addEventListener("click", function (e) {
-        copyAddress(this);
-        e.stopPropagation();
-      });
-    });
-  }
-
   try {
     const userSnap = await userRef.get();
     const userData = userSnap.data();
@@ -67,9 +94,6 @@ async function loadEvents() {
 
     db.collection("events").onSnapshot((snapshot) => {
       if (snapshot.empty) {
-        console.log(
-          "No events in the database — showing placeholders from HTML."
-        );
         return;
       }
 
@@ -113,7 +137,7 @@ function createEventHTML(event, eventId, isPurchased) {
           <span class="event-date">Дата проведения: ${event.date}</span>
           <div class="event-adress-container">
             <span class="event-adress">
-              Адрес: 
+              Адрес:
               <span class="event-adress-link">
                 <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
                   event.address
@@ -131,21 +155,5 @@ function createEventHTML(event, eventId, isPurchased) {
   `;
 }
 
-async function saveUserToFirestore(userId, name, photoUrl, code) {
-  const userRef = db.collection("users").doc(userId);
-  const doc = await userRef.get();
-
-  if (!doc.exists) {
-    await userRef.set({
-      name,
-      photoUrl,
-      code,
-      balance: 0,
-      tickets: [],
-    });
-  } else {
-    await userRef.set({ name, photoUrl }, { merge: true });
-  }
-}
-
+initUser();
 loadEvents();

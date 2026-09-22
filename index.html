@@ -3,7 +3,6 @@
 
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Profile Card</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -12,8 +11,6 @@
   <link rel="stylesheet" href="./css/notification.css">
   <link rel="stylesheet" href="./css/wallet.css">
   <link rel="stylesheet" href="./css/keyboard.css">
-  <style>
-  </style>
 </head>
 
 <body>
@@ -134,98 +131,6 @@
   </div>
   <div class="overlay" id="overlay">
   </div>
-
-  <script>
-    window.addEventListener("DOMContentLoaded", async () => {
-      const tg = window.Telegram.WebApp;
-      tg.expand();
-
-      const user = tg.initDataUnsafe.user;
-
-      // Если пользователь не зашёл через Telegram — показать заглушку
-      if (!user || !user.id) {
-        console.warn("Not in Telegram WebApp");
-        document.getElementById('user-name').textContent = "Гость";
-        document.getElementById('user-photo').src = './img/avatar.png';
-        document.getElementById('user-code').textContent = "XXXX-XXXX";
-        document.querySelector(".balance-value").textContent = `0 С`;
-        return;
-      }
-
-      const userId = user.id.toString();
-      const name = `${user.first_name} ${user.last_name || ''}`.trim();
-      const photoUrl = user.photo_url || './img/avatar.png';
-
-      // Отображаем имя и фото
-      document.getElementById('user-name').textContent = name;
-      document.getElementById('user-photo').src = photoUrl;
-
-      // Инициализируем Firebase
-      const firebaseConfig = {
-        apiKey: "AIzaSyB80f5g7oANki4mhGSTtf9BQ_q_FBVoyt0",
-        authDomain: "sssueta-club.firebaseapp.com",
-        projectId: "sssueta-club",
-        storageBucket: "sssueta-club.firebasestorage.app",
-        messagingSenderId: "243713908879",
-        appId: "1:243713908879:web:36f19a718c7ee7584110fa",
-      };
-
-      firebase.initializeApp(firebaseConfig);
-      const db = firebase.firestore();
-      const userRef = db.collection("users").doc(userId); // Теперь userRef объявлена до использования
-
-      // Функция для форматирования баланса
-      function formatBalance(balance) {
-        return balance.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
-      }
-
-      userRef.onSnapshot(async (userSnap) => {
-        if (userSnap.exists) {
-          const data = userSnap.data();
-          const code = data.code || "00000000";
-          const balance = data.balance ?? 0;
-
-          document.querySelector(".balance-value").textContent = `${formatBalance(balance)} С`;
-          document.getElementById('user-code').textContent = formatCode(code);
-        } else {
-          const code = await generateUniqueCode(db);
-          await userRef.set({
-            name,
-            photoUrl,
-            code,
-            balance: 0
-          });
-          document.querySelector(".balance-value").textContent = "0 С";
-          document.getElementById('user-code').textContent = formatCode(code);
-        }
-      });
-
-      // Остальной код...
-    });
-
-    // Форматирование кода (12345678 → 1234-5678)
-    function formatCode(code) {
-      return code.slice(0, 4) + '-' + code.slice(4, 8);
-    }
-
-    // Генерация уникального кода (проверка по Firestore)
-    async function generateUniqueCode(db) {
-      const usersRef = db.collection("users");
-      let code;
-      let exists = true;
-
-      while (exists) {
-        code = Math.floor(10000000 + Math.random() * 90000000).toString();
-        const querySnapshot = await usersRef.where("code", "==", code).get();
-        exists = !querySnapshot.empty;
-      }
-
-      return code;
-    }
-  </script>
-
-
-
 
   <script src="./js/user_Info.js"></script>
   <script src="./js/open_Events.js"></script>

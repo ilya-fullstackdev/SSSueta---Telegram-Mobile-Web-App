@@ -113,7 +113,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Закрытие клавиатуры при клике вне её
   document.addEventListener("click", (e) => {
     const isClickInsideKeyboard = keyboard.contains(e.target);
     const isClickOnInput =
@@ -123,7 +122,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Закрытие wallet-container при клике вне его и клавиатуры
   document.addEventListener("click", (e) => {
     const isClickInsideWallet = walletContainer.contains(e.target);
     const isClickOnWalletNav = walletIcon.contains(e.target);
